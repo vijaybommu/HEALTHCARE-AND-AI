@@ -1,0 +1,346 @@
+
+Here is the complete, full HTML and JavaScript code for your TriageAI project. It includes the patient intake form, the ESI triage calculation engine, the Leaflet map, hospital markers, and the hospital route drawing code all in one file.
+You can copy this entire code, paste it into your index.html file, and run it in any browser:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TriageAI - Emergency Triage & ICU Bed Routing System</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    body {
+      background-color: #f4f6f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .navbar {
+      background-color: #0f172a;
+    }
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    #map {
+      height: 520px;
+      width: 100%;
+      border-radius: 12px;
+    }
+    .badge-critical {
+      background-color: #dc3545;
+      color: white;
+    }
+    .badge-urgent {
+      background-color: #fd7e14;
+      color: white;
+    }
+    .badge-standard {
+      background-color: #198754;
+      color: white;
+    }
+    .hospital-card {
+      border-left: 4px solid #cbd5e1;
+      transition: all 0.2s ease;
+    }
+    .hospital-card.recommended {
+      border-left: 4px solid #10b981;
+      background-color: #f0fdf4;
+    }
+  </style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <nav class="navbar navbar-dark px-4 py-3">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+      <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="#">
+        <i class="fa-solid fa-heart-pulse text-danger fs-4"></i>
+        <span>Triage<span class="text-danger">AI</span> Dispatch</span>
+      </a>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-light btn-sm" onclick="loadDemoData('critical')">
+          <i class="fa-solid fa-bolt me-1"></i> Demo: Critical
+        </button>
+        <button class="btn btn-outline-light btn-sm" onclick="loadDemoData('urgent')">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i> Demo: Urgent
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 py-4">
+    <div class="row g-4">
+      
+      <!-- Left Column: Patient Intake & Triage Result -->
+      <div class="col-lg-4">
+        
+        <!-- Intake Form -->
+        <div class="card p-4 mb-4">
+          <h5 class="fw-bold mb-3"><i class="fa-solid fa-user-doctor text-primary me-2"></i>Patient Intake Form</h5>
+          <form id="triageForm" onsubmit="processTriage(event)">
+            
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label small text-muted">Age</label>
+                <input type="number" id="age" class="form-control" placeholder="e.g. 58" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label small text-muted">SpO2 (%)</label>
+                <input type="number" id="spo2" class="form-control" placeholder="e.g. 88" required>
+              </div>
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label small text-muted">Heart Rate (bpm)</label>
+                <input type="number" id="heartRate" class="form-control" placeholder="e.g. 135" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label small text-muted">Systolic BP</label>
+                <input type="number" id="bp" class="form-control" placeholder="e.g. 150">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small text-muted">Chief Complaints / Symptoms</label>
+              <textarea id="symptoms" class="form-control" rows="2" placeholder="e.g. Severe chest pain, shortness of breath..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-danger w-100 fw-semibold">
+              <i class="fa-solid fa-magnifying-glass-chart me-1"></i> Calculate Triage & Find Hospital
+            </button>
+          </form>
+        </div>
+
+        <!-- Triage Result Card -->
+        <div class="card p-4 d-none" id="resultCard">
+          <h6 class="text-uppercase text-muted fw-bold small">Assessment Outcome</h6>
+          <div class="d-flex align-items-center justify-content-between my-2">
+            <h4 class="fw-bold mb-0" id="esiLevelText">Level 1 - Red</h4>
+            <span class="badge rounded-pill px-3 py-2 fs-6" id="esiBadge">CRITICAL</span>
+          </div>
+          <p class="text-muted small mb-3" id="esiDescription">Immediate life-saving intervention required.</p>
+
+          <hr class="my-2">
+
+          <div class="mt-2">
+            <small class="text-muted d-block">Recommended Hospital:</small>
+            <strong class="fs-6 text-dark" id="recHospitalName">-</strong>
+            <div class="d-flex justify-content-between mt-2 small text-muted">
+              <span><i class="fa-solid fa-bed text-primary me-1"></i> Available ICU: <b id="recHospitalBeds" class="text-dark">0</b></span>
+              <span><i class="fa-solid fa-route text-success me-1"></i> Est. Distance: <b id="recHospitalDist" class="text-dark">0 km</b></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Interactive Map & Hospital List -->
+      <div class="col-lg-8">
+        <div class="card p-3 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+            <h5 class="fw-bold mb-0"><i class="fa-solid fa-map-location-dot text-danger me-2"></i>Real-Time ICU Bed & Route Dashboard</h5>
+            <span class="badge bg-light text-dark border"><i class="fa-solid fa-circle text-success me-1"></i> Live Grid Network</span>
+          </div>
+          <!-- Leaflet Map Canvas -->
+          <div id="map"></div>
+        </div>
+
+        <!-- Hospital Network Status Cards -->
+        <div class="row g-3" id="hospitalList">
+          <!-- Dynamic Hospital Cards Rendered via JS -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // 1. Mock Hospital Data
+    const hospitals = [
+      { id: 1, name: "City General Hospital", lat: 13.0827, lng: 80.2707, totalIcu: 20, availIcu: 1, waitMins: 45 },
+      { id: 2, name: "Apollo Specialty Care", lat: 13.0524, lng: 80.2508, totalIcu: 15, availIcu: 6, waitMins: 10 },
+      { id: 3, name: "Metro Emergency Center", lat: 13.0382, lng: 80.2158, totalIcu: 12, availIcu: 4, waitMins: 15 }
+    ];
+
+    const incidentLocation = { lat: 13.0600, lng: 80.2400 };
+
+    let map, markers = [], routeLine = null;
+
+    // 2. Initialize Leaflet Map
+    function initMap() {
+      map = L.map('map').setView([incidentLocation.lat, incidentLocation.lng], 12);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      L.marker([incidentLocation.lat, incidentLocation.lng], {
+        icon: L.divIcon({
+          className: 'custom-icon',
+          html: `<div style="background:#dc3545; color:white; padding:6px 10px; border-radius:50%; font-size:14px;"><i class="fa-solid fa-ambulance"></i></div>`
+        })
+      }).addTo(map).bindPopup("<b>Emergency Location</b><br>Ambulance En Route");
+
+      renderHospitalMarkers();
+      renderHospitalCards();
+    }
+
+    // 3. Render Hospital Markers
+    function renderHospitalMarkers(recommendedId = null) {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      hospitals.forEach(h => {
+        const isRec = h.id === recommendedId;
+        const color = isRec ? '#10b981' : '#3b82f6';
+        
+        const marker = L.marker([h.lat, h.lng], {
+          icon: L.divIcon({
+            className: 'custom-icon',
+            html: `<div style="background:${color}; color:white; padding:8px 12px; border-radius:8px; font-weight:bold; box-shadow:0 2px 6px rgba(0,0,0,0.3);">
+                    <i class="fa-solid fa-hospital"></i> ${h.availIcu} ICU
+                   </div>`
+          })
+        }).addTo(map);
+
+        marker.bindPopup(`<b>${h.name}</b><br>Available ICU Beds: <b>${h.availIcu}</b> / ${h.totalIcu}<br>ER Wait Time: ${h.waitMins} mins`);
+        markers.push(marker);
+      });
+    }
+
+    // 4. Render Hospital List Cards
+    function renderHospitalCards(recommendedId = null) {
+      const container = document.getElementById('hospitalList');
+      container.innerHTML = '';
+
+      hospitals.forEach(h => {
+        const isRec = h.id === recommendedId;
+        const dist = calculateDistance(incidentLocation.lat, incidentLocation.lng, h.lat, h.lng).toFixed(1);
+
+        const cardHTML = `
+          <div class="col-md-4">
+            <div class="card p-3 hospital-card ${isRec ? 'recommended' : ''}">
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <h6 class="fw-bold mb-0 text-truncate">${h.name}</h6>
+                ${isRec ? '<span class="badge bg-success">Best Match</span>' : ''}
+              </div>
+              <div class="small text-muted mb-2"><i class="fa-solid fa-location-dot me-1"></i> ${dist} km away</div>
+              <div class="d-flex justify-content-between small">
+                <span>ICU Beds: <b class="${h.availIcu < 2 ? 'text-danger' : 'text-success'}">${h.availIcu} Left</b></span>
+                <span>Wait: <b>${h.waitMins}m</b></span>
+              </div>
+            </div>
+          </div>
+        `;
+        container.innerHTML += cardHTML;
+      });
+    }
+
+    // 5. Triage Scoring Engine & Routing Trigger
+    function processTriage(event) {
+      if (event) event.preventDefault();
+
+      const spo2 = parseInt(document.getElementById('spo2').value);
+      const heartRate = parseInt(document.getElementById('heartRate').value);
+
+      let level = 3;
+      let badgeClass = "badge-standard";
+      let levelText = "ESI Level 3 - Standard";
+      let desc = "Stable vitals. Standard emergency intake assignment.";
+
+      if (spo2 < 90 || heartRate > 130) {
+        level = 1;
+        badgeClass = "badge-critical";
+        levelText = "ESI Level 1 - Critical";
+        desc = "Immediate life-saving resuscitation required. Prioritize maximum ICU capacity.";
+      } else if (spo2 <= 94 || heartRate >= 100) {
+        level = 2;
+        badgeClass = "badge-urgent";
+        levelText = "ESI Level 2 - Urgent";
+        desc = "High-risk situation. Urgent medical team assignment needed.";
+      }
+
+      let availableHospitals = hospitals.filter(h => h.availIcu > 0);
+      if (availableHospitals.length === 0) availableHospitals = hospitals;
+
+      availableHospitals.sort((a, b) => {
+        const distA = calculateDistance(incidentLocation.lat, incidentLocation.lng, a.lat, a.lng);
+        const distB = calculateDistance(incidentLocation.lat, incidentLocation.lng, b.lat, b.lng);
+        return (distA + a.waitMins * 0.1) - (distB + b.waitMins * 0.1);
+      });
+
+      const bestHospital = availableHospitals[0];
+      const bestDist = calculateDistance(incidentLocation.lat, incidentLocation.lng, bestHospital.lat, bestHospital.lng).toFixed(1);
+
+      document.getElementById('resultCard').classList.remove('d-none');
+      document.getElementById('esiLevelText').innerText = levelText;
+      document.getElementById('esiBadge').className = `badge rounded-pill px-3 py-2 fs-6 ${badgeClass}`;
+      document.getElementById('esiDescription').innerText = desc;
+      document.getElementById('recHospitalName').innerText = bestHospital.name;
+      document.getElementById('recHospitalBeds').innerText = `${bestHospital.availIcu} Beds`;
+      document.getElementById('recHospitalDist').innerText = `${bestDist} km`;
+
+      renderHospitalMarkers(bestHospital.id);
+      renderHospitalCards(bestHospital.id);
+      drawRoute(incidentLocation, bestHospital);
+    }
+
+    // 6. Draw Polyline Route on Map
+    function drawRoute(start, end) {
+      if (routeLine) map.removeLayer(routeLine);
+
+      const latlngs = [
+        [start.lat, start.lng],
+        [end.lat, end.lng]
+      ];
+
+      routeLine = L.polyline(latlngs, { color: '#10b981', weight: 5, opacity: 0.8, dashArray: '8, 8' }).addTo(map);
+      map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+    }
+
+    // 7. Distance Calculation (Haversine Formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // 8. Demo Button Handler
+    function loadDemoData(type) {
+      if (type === 'critical') {
+        document.getElementById('age').value = 62;
+        document.getElementById('spo2').value = 85;
+        document.getElementById('heartRate').value = 142;
+        document.getElementById('bp').value = 165;
+        document.getElementById('symptoms').value = "Severe crushing chest pain, diaphoresis, shortness of breath.";
+      } else if (type === 'urgent') {
+        document.getElementById('age').value = 45;
+        document.getElementById('spo2').value = 93;
+        document.getElementById('heartRate').value = 110;
+        document.getElementById('bp').value = 135;
+        document.getElementById('symptoms').value = "Moderate asthma flare-up, persistent cough.";
+      }
+      processTriage();
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>

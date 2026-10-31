@@ -1,0 +1,71 @@
+
+/* Custom Dashboard Base Styles */
+body {
+  background-color: #f4f6f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333333;
+}
+
+/* Header & Navbar */
+.navbar {
+  background-color: #0f172a;
+}
+
+.navbar-brand {
+  letter-spacing: 0.5px;
+}
+
+/* Cards & Panels */
+.card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background-color: #ffffff;
+}
+
+/* Interactive Leaflet Map Setup */
+#map {
+  height: 520px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Triage Outcome Badges */
+.badge-critical {
+  background-color: #dc3545;
+  color: #ffffff;
+}
+
+.badge-urgent {
+  background-color: #fd7e14;
+  color: #ffffff;
+}
+
+.badge-standard {
+  background-color: #198754;
+  color: #ffffff;
+}
+
+/* Hospital Network Status Cards */
+.hospital-card {
+  border-left: 4px solid #cbd5e1;
+  transition: all 0.2s ease-in-out;
+}
+
+.hospital-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.hospital-card.recommended {
+  border-left: 4px solid #10b981;
+  background-color: #f0fdf4;
+}
+
+/* Custom Marker Styling for Leaflet Map */
+.custom-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
